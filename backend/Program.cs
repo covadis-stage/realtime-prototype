@@ -13,7 +13,7 @@ builder.Services.AddSignalR();
 
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll",
+    options.AddPolicy("AllowLocalHost",
         policy => policy
         .WithOrigins("http://localhost:5173")
         .AllowAnyHeader()
@@ -30,7 +30,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseCors("AllowAll");
+app.UseCors("AllowLocalHost");
 
 // app.MapPost("broadcast", async (string message, IHubContext<ChatHub, IChatClient> context) => {
 //     await context.Clients.All.ReceiveMessage(message);
