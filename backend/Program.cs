@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.SignalR;
 using SignalR_prototype;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -32,10 +33,10 @@ if (app.Environment.IsDevelopment())
 
 app.UseCors("AllowLocalHost");
 
-// app.MapPost("broadcast", async (string message, IHubContext<ChatHub, IChatClient> context) => {
-//     await context.Clients.All.ReceiveMessage(message);
-//     return Results.Ok();
-// });
+app.MapPost("broadcast", async (string message, IHubContext<ChatHub, IChatClient> context) => {
+    await context.Clients.All.ReceiveMessage("Server", message);
+    return Results.Ok();
+});
 
 app.UseHttpsRedirection();
 
