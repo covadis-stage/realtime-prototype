@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore;
 using SignalR_prototype;
+using SignalRPrototype.Backend;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,11 +18,15 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowLocalHost",
         policy => policy
-        .WithOrigins("http://localhost:5173")
+        .WithOrigins("http://localhost:5173", "https://localhost:7229")
         .AllowAnyHeader()
         .AllowAnyMethod()
         .AllowCredentials());
 });
+
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlServer(connectionString));
+builder.Services.AddScoped<TaskService>();
 
 var app = builder.Build();
 
@@ -33,9 +39,34 @@ if (app.Environment.IsDevelopment())
 
 app.UseCors("AllowLocalHost");
 
-app.MapPost("broadcast", async (string message, IHubContext<ChatHub, IChatClient> context) => {
-    await context.Clients.All.ReceiveMessage("Server", message);
+app.MapPost("broadcast", async (string message, IHubContext<TaskHub, ITaskClient> context) => {
+    // await context.Clients.All.ReceiveMessage("Server", message);
     return Results.Ok();
+});
+
+app.MapGet("tasks", async (TaskService taskService) => {
+    var tasks = await taskService.GetTasksAsync();
+    return Results.Ok(tasks);
+});
+
+app.MapPost("tasks", async (ProjectTask task, TaskService taskService, IHubContext<TaskHub, ITaskClient> context) => {
+    task.SelectedBy = null;
+    var createdTask = await taskService.CreateTaskAsync(task);
+    await context.Clients.All.ReceiveTask(createdTask);
+    return Results.Ok(createdTask);
+});
+
+app.MapPut("tasks/{id}", async (int id, ProjectTask task, TaskService taskService, IHubContext<TaskHub, ITaskClient> context) => {
+    var existingTask = await taskService.GetTaskAsync(id);
+    if (existingTask == null)
+    {
+        return Results.NotFound();
+    }
+    existingTask.Name = task.Name;
+    existingTask.Description = task.Description;
+    var updatedTask = await taskService.UpdateTaskAsync(existingTask);
+    await context.Clients.All.ReceiveTask(updatedTask);
+    return Results.Ok(updatedTask);
 });
 
 app.UseHttpsRedirection();
@@ -44,6 +75,6 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-app.MapHub<ChatHub>("chathub");
+app.MapHub<TaskHub>("taskhub");
 
 app.Run();
